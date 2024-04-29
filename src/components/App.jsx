@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import Ducks from "./Ducks";
 import Login from "./Login";
@@ -9,7 +9,9 @@ import * as auth from "../utils/auth";
 import "./styles/App.css";
 
 function App() {
+  const [userData, setUserData] = useState({ username: "", email: "" });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const navigate = useNavigate();
   const handleRegistration = ({
     username,
     email,
@@ -20,11 +22,33 @@ function App() {
       auth
         .register(username, password, email)
         .then(() => {
-          // TODO: handle succesful registration
+          navigate("/login");
         })
         .catch(console.error);
     }
   };
+  const handleLogin = ({ username, password }) => {
+    // If username or password empty, return without sending a request.
+    if (!username || !password) {
+      return;
+    }
+
+    // We pass the username and password as positional arguments. The
+    // authorize function is set up to rename `username` to `identifier`
+    // before sending a request to the server, because that is what the
+    // API is expecting.
+    auth
+      .authorize(username, password)
+      .then((data) => {
+        if (data.jwt) {
+          setUserData(data.user); // save user's data to state
+          setIsLoggedIn(true); // log the user in
+          navigate("/ducks");
+        }
+      })
+      .catch(console.error);
+  };
+
   return (
     <Routes>
       <Route
@@ -39,7 +63,7 @@ function App() {
         path="/my-profile"
         element={
           <ProtectedRoute isLoggedIn={isLoggedIn}>
-            <MyProfile />
+            <MyProfile userData={userData} />
           </ProtectedRoute>
         }
       />
@@ -47,7 +71,7 @@ function App() {
         path="/login"
         element={
           <div className="loginContainer">
-            <Login />
+            <Login handleLogin={handleLogin} />
           </div>
         }
       />
