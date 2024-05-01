@@ -1,4 +1,10 @@
-import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 import { useState, useEffect } from "react";
 import Ducks from "./Ducks";
 import Login from "./Login";
@@ -14,23 +20,8 @@ function App() {
   const [userData, setUserData] = useState({ username: "", email: "" });
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
-  useEffect(() => {
-    const jwt = getToken();
+  const location = useLocation();
 
-    if (!jwt) {
-      return;
-    }
-    api
-      .getUserInfo(jwt)
-      .then(({ username, email }) => {
-        // If the response is successful, log the user in, save their
-        // data to state, and navigate them to /ducks.
-        setIsLoggedIn(true);
-        setUserData({ username, email });
-        navigate("/ducks");
-      })
-      .catch(console.error);
-  }, []);
   const handleRegistration = ({
     username,
     email,
@@ -46,6 +37,7 @@ function App() {
         .catch(console.error);
     }
   };
+
   const handleLogin = ({ username, password }) => {
     // If username or password empty, return without sending a request.
     if (!username || !password) {
@@ -63,13 +55,35 @@ function App() {
           setToken(data.jwt); // save user's data to state
           setUserData(data.user);
           setIsLoggedIn(true); // log the user in
-          navigate("/ducks");
+          // After login, instead of navigating always to /ducks,
+          // navigate to the location that is stored in state. If
+          // there is no stored location, we default to
+          // redirecting to /ducks.
+          const redirectPath = location.state?.from?.pathname || "/ducks";
+          navigate(redirectPath);
         }
       })
       .catch((err) => {
         console.log(err);
       });
   };
+
+  useEffect(() => {
+    const jwt = getToken();
+
+    if (!jwt) {
+      return;
+    }
+    api
+      .getUserInfo(jwt)
+      .then(({ username, email }) => {
+        // If the response is successful, log the user in, save their
+        // data to state, and navigate them to /ducks.
+        setIsLoggedIn(true);
+        setUserData({ username, email });
+      })
+      .catch(console.error);
+  }, []);
 
   return (
     <Routes>
@@ -92,17 +106,21 @@ function App() {
       <Route
         path="/login"
         element={
-          <div className="loginContainer">
-            <Login handleLogin={handleLogin} />
-          </div>
+          <ProtectedRoute isLoggedIn={isLoggedIn} anonymous>
+            <div className="loginContainer">
+              <Login handleLogin={handleLogin} />
+            </div>
+          </ProtectedRoute>
         }
       />
       <Route
         path="/register"
         element={
-          <div className="registerContainer">
-            <Register handleRegistration={handleRegistration} />
-          </div>
+          <ProtectedRoute isLoggedIn={isLoggedIn} anonymous>
+            <div className="registerContainer">
+              <Register handleRegistration={handleRegistration} />
+            </div>
+          </ProtectedRoute>
         }
       />
       <Route
